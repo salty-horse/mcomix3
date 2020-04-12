@@ -107,6 +107,7 @@ class FileHandler(object):
 
         self.filelist = self._file_provider.list_files()
         self.archive_type = archive_tools.archive_mime_type(path)
+        self.is_directory = os.path.isdir(path)
         self._start_page = start_page
         self._current_file = os.path.abspath(path)
         self._stop_waiting = False
@@ -124,6 +125,9 @@ class FileHandler(object):
                 self.file_opened()
                 return False
             self.file_loading = True
+        elif self.is_directory:
+            provider = file_provider.OrderedFileProvider(self._current_file)
+            self._archive_opened(provider.list_files())
         else:
             image_files, current_image_index = \
                 self._open_image_files(self.filelist, self._current_file)
@@ -145,7 +149,11 @@ class FileHandler(object):
             self._window.osd.show(msg)
 
         else:
-            if self.archive_type is None:
+            if self.is_directory:
+                # If no extraction is required, mark all files as available.
+                self.file_available(image_files)
+                current_image_index = 0
+            elif self.archive_type is None:
                 # If no extraction is required, mark all files as available.
                 self.file_available(self.filelist)
                 # Set current page to current file.
@@ -452,16 +460,17 @@ class FileHandler(object):
         archive in that archive's directory listing, sorted alphabetically.
         Returns True if a new archive was opened, False otherwise.
         '''
-        if self.archive_type is not None:
+        if self.archive_type is not None or \
+           isinstance(self._file_provider, file_provider.PreDefinedFileProvider):
 
-            files = self._file_provider.list_files(file_provider.FileProvider.ARCHIVES)
-            absolute_path = os.path.abspath(self._base_path)
-            if absolute_path not in files: return
-            current_index = files.index(absolute_path)
+            files = self._file_provider.list_files()
+            if self._current_file not in files: return
+            current_index = files.index(self._current_file)
 
             for path in files[current_index + 1:]:
-                if archive_tools.archive_mime_type(path) is not None:
-                    self._close()
+                if archive_tools.archive_mime_type(path) is not None or os.path.isdir(path):
+                    if self.archive_type is not None:
+                        self._close()
                     self.open_file(path, keep_fileprovider=True)
                     return True
 
@@ -472,17 +481,17 @@ class FileHandler(object):
         archive in that archive's directory listing, sorted alphabetically.
         Returns True if a new archive was opened, False otherwise.
         '''
-        if self.archive_type is not None:
+        if self.archive_type is not None or \
+           isinstance(self._file_provider, file_provider.PreDefinedFileProvider):
 
             files = self._file_provider.list_files(file_provider.FileProvider.ARCHIVES)
-            absolute_path = os.path.abspath(self._base_path)
-            if absolute_path not in files: return
-            current_index = files.index(absolute_path)
+            if self._current_file not in files: return
+            current_index = files.index(self._current_file)
 
             for path in reversed(files[:current_index]):
-                if archive_tools.archive_mime_type(path) is not None:
+                if archive_tools.archive_mime_type(path) is not None or os.path.isdir(path):
                     self._close()
-                    self.open_file(path, -1, keep_fileprovider=True)
+                    self.open_file(path, keep_fileprovider=True)
                     return True
 
         return False

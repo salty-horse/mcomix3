@@ -201,8 +201,9 @@ class PreDefinedFileProvider(FileProvider):
 
         for file in files:
             if os.path.isdir(file):
-                provider = OrderedFileProvider(file)
-                self.__files.extend(provider.list_files())
+                # provider = OrderedFileProvider(file)
+                # self.__files.extend(provider.list_files())
+                self.__files.append(os.path.abspath(file))
 
             elif should_accept(file):
                 self.__files.append(os.path.abspath(file))
